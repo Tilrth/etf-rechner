@@ -74,10 +74,11 @@
   .leg-row{display:flex; align-items:center; gap:9px; padding:4px 0; font-size:13.5px;}
   .leg-row .num{margin-left:auto; font-weight:600; font-variant-numeric:tabular-nums;}
   .leg-dot{width:10px; height:10px; border-radius:3px; flex-shrink:0;}
-  .leg-horiz{display:flex; flex-wrap:wrap; gap:2px 20px; margin-top:8px;}
-  .leg-horiz .leg-row{padding:3px 0;}
-  .chart-label{fill:var(--muted); font-size:11.5px;}
-  .chart-grid{stroke:var(--line); stroke-width:1;}
+  @media (min-width: 1024px){
+    .donut{width:190px; height:190px;}
+    .donut-pair{gap:56px;}
+    #chartIstWrap .donut-legend{max-width:560px; margin-left:auto; margin-right:auto;}
+  }
   .pill{display:inline-block; font-size:10.5px; font-weight:600; padding:2px 9px; border-radius:20px;
     background:rgba(61,220,151,.12); color:var(--green);}
   .pill.warn{background:rgba(255,206,107,.12); color:var(--amber);}
@@ -171,10 +172,9 @@
     header{order:0;}
     #cardModes{order:1;} #cardHold{order:2;} #cardAlloc{order:3;}
     #cardNorm{order:4;} #cardReb{order:5; grid-column:1 / -1;}
-    #cardChartTarget{order:6;} #cardChartIst{order:7; grid-column:span 2;}
-    #cardChartConv{order:8; grid-column:1 / -1;}
-    .stats{order:9;} details.advanced{order:10;}
-    .disclaimer{order:11;}
+    #cardChartIst{order:6; grid-column:1 / -1;}
+    .stats{order:7;} details.advanced{order:8;}
+    .disclaimer{order:9;}
     table{font-size:14.5px;}
     .plan-scroll{max-height:520px;}
   }
@@ -291,23 +291,10 @@
     </div>
   </div>
 
-  <!-- Diagramme -->
-  <div class="card" id="cardChartTarget">
-    <h2>Ziel-Allokation</h2>
-    <div class="donut-wrap">
-      <div id="chartTarget"></div>
-      <div class="donut-legend" id="legendTarget"></div>
-    </div>
-  </div>
-
-  <div class="card" id="cardChartIst">
+  <!-- Diagramm -->
+  <div class="card span2" id="cardChartIst">
     <h2>Ist vs. Ziel</h2>
     <div id="chartIstWrap"></div>
-  </div>
-
-  <div class="card span2" id="cardChartConv">
-    <h2>Weg zum Zielgewicht</h2>
-    <div id="chartConv"></div>
   </div>
 
   <div class="stats" id="statStrip">
@@ -712,59 +699,19 @@ function donutSVG(fracs){ // {id: Anteil 0..1} — Donut im Logo-Stil, größtes
 
 function renderCharts(){
   const wts = etfWeights(solve());
-  // Ziel-Donut
-  $("chartTarget").innerHTML = donutSVG(wts);
-  $("legendTarget").innerHTML = etfsSorted(wts).map(e =>
-    `<div class="leg-row"><span class="leg-dot" style="background:${ETF_COLORS[e.id]}"></span><span>${esc(e.name)}</span><span class="num">${fmt(wts[e.id]*100,1)} %</span></div>`).join("");
-  // Ist vs. Ziel
   const {V, vals} = holdingsValue();
   const wrap = $("chartIstWrap");
   if(V<=0){
     wrap.innerHTML = `<p class="hint">Trage deinen Bestand ein, um die Ist-Allokation zu sehen.</p>`;
-  } else {
-    const ist = {}; state.etfs.forEach(e => ist[e.id] = vals[e.id]/V);
-    wrap.innerHTML = `<div class="donut-pair">
-        <div class="donut-box">${donutSVG(ist)}<div class="donut-cap">Ist</div></div>
-        <div class="donut-box">${donutSVG(wts)}<div class="donut-cap">Ziel</div></div>
-      </div>
-      <div class="donut-legend" style="margin-top:12px;">${etfsSorted(wts).map(e =>
-        `<div class="leg-row"><span class="leg-dot" style="background:${ETF_COLORS[e.id]}"></span><span>${esc(e.name)}</span><span class="num">${fmt(ist[e.id]*100,1)} → ${fmt(wts[e.id]*100,1)} %</span></div>`).join("")}</div>`;
+    return;
   }
-  // Weg zum Zielgewicht — gestapelte Fläche über die Plan-Monate
-  const P = simulatePlan();
-  const conv = $("chartConv");
-  if(P.months.length===0){
-    conv.innerHTML = `<p class="hint">Trage Einmalbetrag und/oder Sparrate ein, um den Verlauf zu sehen.</p>`;
-  } else {
-    const pts = [{m:0, v:{...P.vals}}];
-    const cur = {...P.vals};
-    P.months.forEach(mo => { P.ORDER.forEach(id => cur[id]+=mo.buys[id]); pts.push({m:mo.m, v:{...cur}}); });
-    const W=680, H=270, pl=62, pr=10, pt=12, pb=30, n=pts.length;
-    const maxV = Math.max(...pts.map(p => P.ORDER.reduce((a,id)=>a+p.v[id],0))) * 1.02;
-    const X = i => pl + (W-pl-pr) * (n===1?0:i/(n-1));
-    const Y = v => H-pb - (H-pt-pb) * v/maxV;
-    let svg = "";
-    [0, 0.5, 1].forEach(f => {
-      const vv = maxV*f;
-      svg += `<line x1="${pl}" y1="${Y(vv)}" x2="${W-pr}" y2="${Y(vv)}" class="chart-grid"/>`;
-      svg += `<text x="${pl-8}" y="${Y(vv)+4}" text-anchor="end" class="chart-label">${f===0?"0":fmt(vv,0)+" €"}</text>`;
-    });
-    const tickIdx = [...new Set([0, Math.round((n-1)*0.25), Math.round((n-1)*0.5), Math.round((n-1)*0.75), n-1])].sort((a,b)=>a-b);
-    tickIdx.forEach(i => {
-      const last = i === n-1;
-      svg += `<text x="${last ? W-pr : X(i)}" y="${H-8}" text-anchor="${last?"end":"middle"}" class="chart-label">${pts[i].m===0?"jetzt":"Monat "+pts[i].m}</text>`;
-    });
-    const cum = new Array(n).fill(0);
-    const sIds = etfsSorted(P.wts).map(e => e.id); // größte Fläche unten, Legende absteigend
-    sIds.forEach(id => {
-      const top = [], bot = [];
-      pts.forEach((p,i) => { const c0 = cum[i], c1 = c0 + p.v[id]; top.push(`${X(i).toFixed(1)},${Y(c1).toFixed(1)}`); bot.unshift(`${X(i).toFixed(1)},${Y(c0).toFixed(1)}`); cum[i] = c1; });
-      svg += `<polygon points="${top.concat(bot).join(" ")}" fill="${ETF_COLORS[id]}" fill-opacity="0.85"/>`;
-    });
-    conv.innerHTML = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block;">${svg}</svg>
-      <div class="leg-horiz">${etfsSorted(P.wts).map(e =>
-        `<div class="leg-row"><span class="leg-dot" style="background:${ETF_COLORS[e.id]}"></span><span>${esc(e.name)}</span></div>`).join("")}</div>`;
-  }
+  const ist = {}; state.etfs.forEach(e => ist[e.id] = vals[e.id]/V);
+  wrap.innerHTML = `<div class="donut-pair">
+      <div class="donut-box">${donutSVG(ist)}<div class="donut-cap">Ist</div></div>
+      <div class="donut-box">${donutSVG(wts)}<div class="donut-cap">Ziel</div></div>
+    </div>
+    <div class="donut-legend" style="margin-top:12px;">${etfsSorted(wts).map(e =>
+      `<div class="leg-row"><span class="leg-dot" style="background:${ETF_COLORS[e.id]}"></span><span>${esc(e.name)}</span><span class="num">${fmt(ist[e.id]*100,1)} → ${fmt(wts[e.id]*100,1)} %</span></div>`).join("")}</div>`;
 }
 
 function renderSources(){
