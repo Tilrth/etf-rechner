@@ -202,7 +202,7 @@
   <div class="card">
     <h2><span class="step">1</span>Ziel-Modi wählen</h2>
     <div class="scroll"><table id="cmpTable">
-      <thead><tr><th>ETF</th><th class="num">China: Markt<br>Europa: Markt</th><th class="num">China: BIP<br>Europa: BIP</th><th class="num">China: Mitte<br>Europa: Mitte</th></tr></thead>
+      <thead><tr><th>ETF</th><th class="num">China: Markt<br>Europa: Mitte</th><th class="num">China: BIP<br>Europa: BIP</th><th class="num">China: Mitte<br>Europa: Mitte</th></tr></thead>
       <tbody></tbody>
     </table></div>
     <div class="grid2" style="margin-top:14px;">
@@ -215,7 +215,7 @@
       <div>
         <label>Europa-Zielmodus</label>
         <div class="seg" id="segEu">
-          <button data-v="mc">Markt</button><button data-v="gdp">BIP</button><button data-v="mid">Mitte</button>
+          <button data-v="gdp">BIP</button><button data-v="mid">Mitte</button>
         </div>
       </div>
     </div>
@@ -245,25 +245,22 @@
     <div id="allocBars"></div>
   </div>
 
-  <div class="card" id="cardLump">
-    <h2>Einmalbetrag aufteilen</h2>
-    <div class="scroll"><table id="lumpTable">
-      <thead><tr><th>ETF</th><th class="num">Betrag (€)</th></tr></thead>
-      <tbody></tbody>
-    </table></div>
-  </div>
-
   <div class="card span2" id="cardReb">
-    <h2>Rebalancing</h2>
-    <div class="seg" id="segMode" style="max-width:420px;">
-      <button data-v="B" class="on">Sparplan (nur Käufe)</button><button data-v="A">Vollständig</button>
-    </div>
+    <h2>Rebalancing (nur Käufe)</h2>
     <div id="driftBars" style="margin-top:6px;"></div>
     <div class="scroll" style="margin-top:10px;"><table id="rebTable">
-      <thead><tr><th>ETF</th><th class="num">Ist %</th><th class="num">Ziel %</th><th class="num">Drift</th><th class="num">Kauf/Verkauf (€)</th><th class="num" id="convCol">Konvergenz</th></tr></thead>
+      <thead><tr><th>ETF</th><th class="num">Ist %</th><th class="num">Ziel %</th><th class="num">Drift</th><th class="num">Kauf Monat 1 (€)</th></tr></thead>
       <tbody></tbody>
     </table></div>
     <p class="hint" id="rebNote"></p>
+    <div id="planWrap">
+      <h2 style="margin-top:22px;">Monatsplan bis zum Zielgewicht</h2>
+      <p class="hint" id="planSummary" style="margin-top:0;"></p>
+      <div class="scroll" style="margin-top:8px;"><table id="planTable">
+        <thead><tr><th>Monat</th><th class="num">World</th><th class="num">Europa</th><th class="num">China</th><th class="num">Taiwan</th><th class="num">Korea</th><th class="num">Summe (€)</th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+    </div>
   </div>
 
   <details class="advanced" id="advDetails">
@@ -320,9 +317,8 @@ const DEFAULTS = {
     mkt:  {tw:3.39, kr:2.89, cn:2.62, eu:14.1, asOf:"30.06.2026"},
     gdp:  {world:118.2, china:19.6, europe:29.0, asOf:"2025"},
     world:{eu:15.0, asOf:"06/2026"},
-    modes:{cn:"mc", eu:"mc"}
+    modes:{cn:"mc", eu:"mid"}
   },
-  rebMode:"B",
   etfs:[
     {id:"base", name:"UBS Core MSCI World (Acc)",  index:"MSCI World",  value:null},
     {id:"eu",   name:"SPDR MSCI Europe (Acc)",     index:"MSCI Europe", value:null},
@@ -338,6 +334,8 @@ if(!state.data.world) state.data.world = {eu:15.0, asOf:"06/2026"};
 delete state.data.basis; delete state.data.acwi; delete state.additive;
 delete state.apiKey; delete state.carry;
 delete state.data.cls; delete state.data.clsAsOf; delete state.data.clsAnn; delete state.data.clsEff;
+delete state.rebMode;
+if(state.data.modes && state.data.modes.eu === "mc") state.data.modes.eu = "mid";
 {
   const meta = {base:{name:"UBS Core MSCI World (Acc)",index:"MSCI World"}, eu:{name:"SPDR MSCI Europe (Acc)",index:"MSCI Europe"},
     cn:{name:"HSBC MSCI China (Acc)",index:"MSCI China"}, tw:{name:"Franklin FTSE Taiwan (Acc)",index:"FTSE Taiwan"},
@@ -403,7 +401,7 @@ function etfName(id){ const e = state.etfs.find(x => x.id === id); return e ? e.
 
 function renderCompare(){
   const tb = $("cmpTable").querySelector("tbody"); tb.innerHTML="";
-  const combos = [{cn:"mc",eu:"mc"},{cn:"gdp",eu:"gdp"},{cn:"mid",eu:"mid"}];
+  const combos = [{cn:"mc",eu:"mid"},{cn:"gdp",eu:"gdp"},{cn:"mid",eu:"mid"}];
   const sols = combos.map(c => solve(c));
   const eff = (s,k) => s.s[k] + s.w[k]*s.b;
   const row = (label, fn, bold) => {
@@ -429,7 +427,6 @@ function renderSegs(){
   [["segCn", state.data.modes.cn],["segEu", state.data.modes.eu]].forEach(([id,v]) => {
     $(id).querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.v===v));
   });
-  $("segMode").querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.v===state.rebMode));
 }
 
 function renderHoldings(){
@@ -506,88 +503,101 @@ function renderStats(){
   $("stGdp").textContent = state.data.gdp.asOf || "–";
 }
 
-function renderLump(){
-  const L = state.lumpSum;
-  const card = $("cardLump");
-  if(L==null || L<=0){ card.classList.add("hidden"); return; }
-  card.classList.remove("hidden");
-  const wts = etfWeights(solve());
-  const tb = $("lumpTable").querySelector("tbody"); tb.innerHTML="";
-  state.etfs.forEach(e => {
-    const tr = document.createElement("tr"); tr.className="etfrow";
-    tr.innerHTML = `<td>${esc(e.name)}</td><td class="num"><b>${fmt(L*wts[e.id])}</b></td>`;
-    tb.appendChild(tr);
-  });
-}
-
 function renderReb(){
+  const ORDER = ["base","eu","cn","tw","kr"];
   const {V, vals} = holdingsValue();
   const card = $("cardReb");
-  const hasHoldings = state.etfs.some(e => e.value != null && e.value > 0);
-  if(!hasHoldings){ card.classList.add("hidden"); return; }
+  const L = state.lumpSum||0, monthly = state.monthly||0;
+  if(V<=0 && L<=0 && monthly<=0){ card.classList.add("hidden"); return; }
   card.classList.remove("hidden");
-  const sol = solve(), wts = etfWeights(sol);
-  const modeB = state.rebMode==="B";
-  const monthly = state.monthly||0;
-  const C = modeB ? monthly : 0;
-  const after = V + C;
-  const tv = {}; state.etfs.forEach(e => tv[e.id] = after*wts[e.id]);
+  const wts = etfWeights(solve());
 
-  // Waterfill / Full
-  const plan = {};
-  if(modeB){
+  // Monats-Simulation — nur Käufe (Waterfill auf die Lücken zum Ziel)
+  const months = [];
+  const cur = {...vals}; let curV = V, converged = false, m = 0;
+  while(m < 600){
+    m++;
+    const C = (m===1 ? L + monthly : monthly);
+    if(C <= 0){ break; }
+    const after = curV + C;
     const gaps = {}; let gapSum = 0;
-    state.etfs.forEach(e => { gaps[e.id] = Math.max(0, tv[e.id]-vals[e.id]); gapSum += gaps[e.id]; });
-    state.etfs.forEach(e => {
-      let buy;
-      if(gapSum===0) buy = C*wts[e.id];
-      else if(gapSum<=C) buy = gaps[e.id] + (C-gapSum)*wts[e.id];
-      else buy = C*(gaps[e.id]/gapSum);
-      plan[e.id] = buy;
-    });
-    // Zwangsverkauf-Position bekommt nichts
-    state.etfs.forEach(e => { if(SAT.includes(e.id) && wts[e.id]===0 && vals[e.id]>0) plan[e.id]=0; });
-  } else {
-    state.etfs.forEach(e => plan[e.id] = tv[e.id]-vals[e.id]); // negativ = verkaufen
+    ORDER.forEach(id => { gaps[id] = Math.max(0, after*wts[id] - cur[id]); gapSum += gaps[id]; });
+    const buys = {}; let done = false;
+    if(gapSum < 0.005){ ORDER.forEach(id => buys[id] = C*wts[id]); done = true; }
+    else if(gapSum <= C + 0.005){ ORDER.forEach(id => buys[id] = gaps[id] + (C-gapSum)*wts[id]); done = true; }
+    else ORDER.forEach(id => buys[id] = C*gaps[id]/gapSum);
+    ORDER.forEach(id => { cur[id] += buys[id]; });
+    curV = after;
+    months.push({m, buys, total:C});
+    if(done){ converged = true; break; }
   }
 
   // Drift-Balken
   const db = $("driftBars"); db.innerHTML="";
   state.etfs.forEach(e => {
-    const cur = V>0 ? vals[e.id]/V*100 : 0, tgt = wts[e.id]*100, diff = cur-tgt;
+    const c = V>0 ? vals[e.id]/V*100 : 0, tgt = wts[e.id]*100, diff = c-tgt;
     const div = document.createElement("div"); div.className="bar-row";
     div.innerHTML = `<div class="bar-label"><span>${esc(e.name)}</span>
-      <span class="diff ${diff>=0?"up":"down"}">${fmt(cur,1)} % → ${fmt(tgt,1)} %</span></div>
-      <div class="bars"><div class="bar" style="width:${Math.min(cur,100)}%"></div><div class="tick" style="left:${Math.min(tgt,100)}%"></div></div>`;
+      <span class="diff ${diff>=0?"up":"down"}">${fmt(c,1)} % → ${fmt(tgt,1)} %</span></div>
+      <div class="bars"><div class="bar" style="width:${Math.min(c,100)}%"></div><div class="tick" style="left:${Math.min(tgt,100)}%"></div></div>`;
     db.appendChild(div);
   });
 
-  // Tabelle
+  // Monat-1-Tabelle
   const tb = $("rebTable").querySelector("tbody"); tb.innerHTML="";
-  $("convCol").classList.toggle("hidden", !modeB);
+  const first = months[0];
   state.etfs.forEach(e => {
-    const amt = plan[e.id];
-    const cur = V>0 ? vals[e.id]/V*100 : 0, tgt = wts[e.id]*100;
-    const amtTxt = `<b class="${amt<0?"diff down":""}">${amt<0?"":"+"}${fmt(amt)}</b>`;
-    let conv = "–";
-    if(modeB){
-      const gap = Math.max(0, tv[e.id]-vals[e.id]);
-      const m = plan[e.id];
-      conv = (gap>0.01 && m>0.01) ? "≈ "+Math.ceil(gap/m)+" Mon." : (gap>0.01?"–":"✓");
-    }
+    const c = V>0 ? vals[e.id]/V*100 : 0, tgt = wts[e.id]*100;
+    const amt = first ? first.buys[e.id] : 0;
     const tr = document.createElement("tr"); tr.className="etfrow";
-    tr.innerHTML = `<td>${esc(e.name)}</td><td class="num">${fmt(cur,1)}</td><td class="num">${fmt(tgt,1)}</td>
-      <td class="num diff ${cur-tgt>=0?"up":"down"}">${cur-tgt>=0?"+":""}${fmt(cur-tgt,1)}</td>
-      <td class="num">${amtTxt}</td>
-      <td class="num ${modeB?"":"hidden"}">${conv}</td>`;
+    tr.innerHTML = `<td>${esc(e.name)}</td><td class="num">${fmt(c,1)}</td><td class="num">${fmt(tgt,1)}</td>
+      <td class="num diff ${c-tgt>=0?"up":"down"}">${c-tgt>=0?"+":""}${fmt(c-tgt,1)}</td>
+      <td class="num">${amt>0.004?`<b>+${fmt(amt)}</b>`:"–"}</td>`;
     tb.appendChild(tr);
   });
 
-  // Notiz
-  if(modeB){
-    $("rebNote").innerHTML = `Portfoliowert: <b>${fmt(V)} €</b> · verfügbar diesen Monat: <b>${fmt(C)} €</b> (Sparrate) → danach <b>${fmt(after)} €</b>. Konvergenz = geschätzte Monate bis Zielgewicht bei aktueller Sparrate.`;
+  // Notiz unter Monat 1
+  if(first){
+    const parts = [];
+    if(L>0) parts.push(`Einmalbetrag ${fmt(L)}`);
+    if(monthly>0) parts.push(`Sparrate ${fmt(monthly)}`);
+    $("rebNote").innerHTML = `Portfoliowert: <b>${fmt(V)} €</b> · Monat 1 verfügbar: <b>${fmt(first.total)} €</b> (${parts.join(" + ")}) → danach <b>${fmt(V+first.total)} €</b>.`;
   } else {
-    $("rebNote").innerHTML = `Vollständiges Rebalancing auf <b>${fmt(V)} €</b>: negative Beträge = verkaufen, positive = kaufen.`;
+    $("rebNote").innerHTML = `Portfoliowert: <b>${fmt(V)} €</b> — trage Einmalbetrag und/oder Sparrate ein, um den Kaufplan zu sehen.`;
+  }
+
+  // Monatsplan
+  const wrap = $("planWrap");
+  wrap.classList.toggle("hidden", months.length===0);
+  if(months.length>0){
+    if(converged){
+      const src = [];
+      if(L>0) src.push(`Einmalbetrag <b>${fmt(L)} €</b>`);
+      if(monthly>0) src.push(`Sparrate <b>${fmt(monthly)} €</b>/Monat`);
+      const m1txt = (L>0 && monthly>0) ? "Einmalbetrag + erste Sparrate" : (L>0 ? "den Einmalbetrag" : "die erste Sparrate");
+      $("planSummary").innerHTML = `Mit ${src.join(" + ")} bist du in <b>${months.length} ${months.length===1?"Monat":"Monaten"}</b> vollständig auf Zielgewicht — nur durch Käufe, ohne Verkäufe. Monat 1 enthält ${m1txt}.`;
+    } else {
+      let gapSum = 0;
+      ORDER.forEach(id => { gapSum += Math.max(0, curV*wts[id] - cur[id]); });
+      $("planSummary").innerHTML = `Mit dem Einmalbetrag allein nicht vollständig erreichbar — danach bleiben noch ≈ <b>${fmt(gapSum)} €</b> Lücke zu den Zielgewichten. Eine monatliche Sparrate schließt die Lücke über die Zeit (nur durch Käufe).`;
+    }
+    const pb = $("planTable").querySelector("tbody"); pb.innerHTML="";
+    const MAXROWS = 36;
+    const renderRow = row => {
+      const tr = document.createElement("tr");
+      const cells = ORDER.map(id => `<td class="num">${row.buys[id]>0.004?fmt(row.buys[id]):"–"}</td>`).join("");
+      tr.innerHTML = `<td>${row.m}${row.m===1&&L>0?' <span class="ticker-tag">inkl. Einmalbetrag</span>':""}</td>${cells}<td class="num"><b>${fmt(row.total)}</b></td>`;
+      pb.appendChild(tr);
+    };
+    if(months.length <= MAXROWS){
+      months.forEach(renderRow);
+    } else {
+      months.slice(0, MAXROWS-1).forEach(renderRow);
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td colspan="7" class="ticker-tag">… Monate ${MAXROWS}–${months.length-1} im gleichen Muster …</td>`;
+      pb.appendChild(tr);
+      renderRow(months[months.length-1]); // Ziel-Monat immer zeigen
+    }
   }
 }
 
@@ -685,16 +695,15 @@ async function refreshData(){
 function refreshAll(rerenderInputs){
   if(rerenderInputs){ renderDataInputs(); }
   renderCompare(); renderSegs(); renderHoldings();
-  renderStats(); renderAlloc(); renderLump(); renderReb(); renderSources();
+  renderStats(); renderAlloc(); renderReb(); renderSources();
 }
 function refreshResults(){ // wie refreshAll, aber ohne renderHoldings — das Eingabefeld behält den Fokus
-  renderCompare(); renderStats(); renderAlloc(); renderLump(); renderReb(); renderSources();
+  renderCompare(); renderStats(); renderAlloc(); renderReb(); renderSources();
 }
 
 /* ================= EVENTS ================= */
 $("segCn").querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>{state.data.modes.cn=b.dataset.v;save();refreshAll(false);}));
 $("segEu").querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>{state.data.modes.eu=b.dataset.v;save();refreshAll(false);}));
-$("segMode").querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>{state.rebMode=b.dataset.v;save();refreshAll(false);}));
 document.querySelectorAll("[data-d]").forEach(inp=>inp.addEventListener("input",e=>{
   const p=e.target.dataset.d.split(".");
   state.data[p[0]][p[1]] = (p[1]==="asOf") ? e.target.value : num(e.target.value);
