@@ -232,7 +232,6 @@
       <div class="field"><label>Einmalbetrag (€)</label><input id="lumpSum" type="number" step="any" inputmode="decimal" placeholder="z. B. 4000"></div>
       <div class="field"><label>Monatliche Sparrate (€)</label><input id="monthly" type="number" step="any" inputmode="decimal" placeholder="z. B. 500"></div>
     </div>
-    <div style="margin-top:10px;"><button class="btn ghost small" id="btnExample">Beispiel laden</button></div>
   </div>
 
   <!-- SCHRITT 3: Ergebnisse -->
@@ -273,11 +272,7 @@
   <!-- Datenbasis -->
   <div class="card span2">
     <h2>Datenbasis (alle Werte manuell überschreibbar)</h2>
-    <div class="row">
-      <button class="btn ghost small" id="btnImportFile">FTSE-PDF / Holdings-CSV einlesen</button>
-      <input type="file" id="fileImport" accept=".pdf,.csv,.txt" multiple class="hidden">
-    </div>
-    <div class="hint" id="ftseLine" style="margin-top:8px;"></div>
+    <div class="hint" id="ftseLine"></div>
     <div class="hint" id="holdLine" style="margin-top:4px;"></div>
     <p class="sub" style="margin-top:14px;">Marktkapitalisierungs-Gewichte — <b style="color:var(--green)">live via finanzfluss.de</b> (FTSE All-World), manuell überschreibbar</p>
     <div class="grid3">
@@ -438,18 +433,27 @@ function renderSegs(){
 }
 
 function renderHoldings(){
-  const tb = $("holdTable").querySelector("tbody"); tb.innerHTML="";
+  const tb = $("holdTable").querySelector("tbody");
+  // Fokus & Cursor-Position merken, damit ein Re-Render (z. B. wenn Live-Daten ankommen) die Tastatur nicht schließt
+  const act = document.activeElement;
+  const focusId = (act && act.dataset && act.dataset.h === "value" && tb.contains(act)) ? act.dataset.id : null;
+  const caret = focusId != null ? act.selectionStart : null;
+  tb.innerHTML="";
   state.etfs.forEach(e => {
     const tr = document.createElement("tr");
     tr.innerHTML = `<td>${esc(e.name)}<br><span class="ticker-tag">${esc(e.index||"")}</span></td>
-      <td class="num"><input data-h="value" data-id="${e.id}" type="number" step="any" inputmode="decimal" value="${e.value??""}" placeholder="0" style="width:110px;padding:7px 8px;font-size:14px;text-align:right;"></td>`;
+      <td class="num"><input data-h="value" data-id="${e.id}" type="text" inputmode="decimal" autocomplete="off" value="${e.value??""}" placeholder="0" style="width:110px;padding:7px 8px;font-size:14px;text-align:right;"></td>`;
     tb.appendChild(tr);
   });
   tb.querySelectorAll("input").forEach(inp => inp.addEventListener("input", ev => {
     const e = state.etfs.find(x=>x.id===ev.target.dataset.id);
     e.value = num(ev.target.value);
-    save(); refreshAll(false);
+    save(); refreshResults();
   }));
+  if(focusId != null){
+    const inp = tb.querySelector(`input[data-id="${focusId}"]`);
+    if(inp){ inp.focus({preventScroll:true}); try{ inp.setSelectionRange(caret, caret); }catch(e){} }
+  }
 }
 
 /* ================= ERGEBNISSE ================= */
@@ -669,106 +673,6 @@ async function loadFf(){
   }catch(e){ $("ftseLine").textContent = "finanzfluss-Abruf fehlgeschlagen (offline?) – eingetragene Werte bleiben aktiv."; }
 }
 
-/* ---------- Automatischer Import (PDF/CSV) ---------- */
-const EU_COUNTRIES = new Set(("austria|belgium|switzerland|cyprus|czech rep|czechia|germany|denmark|spain|estonia|finland|france|uk|united kingdom|greece|ireland|iceland|italy|lithuania|luxembourg|latvia|malta|netherlands|norway|portugal|slovakia|slovenia|sweden|albania|bosnia|bosnia and herzegovina|bulgaria|croatia|hungary|moldova|montenegro|north macedonia|macedonia|poland|romania|serbia|turkiye|turkey|ukraine|armenia|azerbaijan|georgia|österreich|deutschland|schweiz|dänemark|spanien|finnland|frankreich|großbritannien|grossbritannien|vereinigtes königreich|griechenland|irland|island|italien|litauen|luxemburg|lettland|niederlande|norwegen|slowakei|slowenien|schweden|albanien|bosnien|bulgarien|kroatien|ungarn|moldawien|polen|rumänien|serbien|türkei|armenien|aserbaidschan|georgien|tschechien|tschechische republik|zypern|estland").split("|"));
-const EU_ISO3 = new Set("AUT BEL CHE CYP CZE DEU DNK ESP EST FIN FRA GBR GRC IRL ISL ITA LTU LUX LVA MLT NLD NOR PRT SVK SVN SWE ALB BIH BGR HRV HUN MDA MNE MKD POL ROU SRB TUR UKR ARM AZE GEO".split(" "));
-function isEu(name){
-  const n = (name||"").trim();
-  return EU_COUNTRIES.has(n.toLowerCase().replace(/\./g,"")) || EU_ISO3.has(n.toUpperCase());
-}
-function loadScript(src){
-  return new Promise((res, rej) => { const s = document.createElement("script"); s.src = src; s.onload = res; s.onerror = rej; document.head.appendChild(s); });
-}
-async function ensurePdfJs(){
-  if(window.pdfjsLib) return;
-  await loadScript("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js");
-  pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-}
-async function pdfToLines(buf){
-  await ensurePdfJs();
-  const pdf = await pdfjsLib.getDocument({data: buf}).promise;
-  const lines = [];
-  for(let p = 1; p <= pdf.numPages; p++){
-    const page = await pdf.getPage(p);
-    const tc = await page.getTextContent();
-    let lastY = null, line = "";
-    for(const it of tc.items){
-      if(lastY !== null && Math.abs(it.transform[5] - lastY) > 2){ lines.push(line); line = ""; }
-      if(line && !line.endsWith(" ")) line += " ";
-      line += it.str;
-      lastY = it.transform[5];
-    }
-    if(line) lines.push(line);
-  }
-  return lines;
-}
-function parseFtse(lines){
-  const text = lines.join("\n");
-  const secM = text.match(/Country\/Market Breakdown([\s\S]*?)(Constituent Sizes|Source:|$)/);
-  const sec = secM ? secM[1] : text;
-  const rowRe = /([A-Z][A-Za-z .,'&()\-]{1,40}?)\s+(\d[\d,]*)\s+(\d[\d,]*)\s+(\d+(?:\.\d+)?)(?=\s|$)/g;
-  const w = {}; let euSum = 0, euN = 0;
-  let m;
-  while((m = rowRe.exec(sec))){
-    const name = m[1].trim(), wgt = parseFloat(m[4]);
-    w[name] = wgt;
-    if(isEu(name)){ euSum += wgt; euN++; }
-  }
-  const months = {january:"01",february:"02",march:"03",april:"04",may:"05",june:"06",july:"07",august:"08",september:"09",october:"10",november:"11",december:"12"};
-  const dm = text.match(/Data as at:?\s*(\d{1,2})\s+(\w+)\s+(\d{4})/);
-  const asOf = dm ? dm[1].padStart(2,"0") + "." + (months[dm[2].toLowerCase()]||"??") + "." + dm[3] : null;
-  if(w.Taiwan == null || w.Korea == null || w.China == null || euN === 0) return null;
-  return {tw:w.Taiwan, kr:w.Korea, cn:w.China, eu:Math.round(euSum*100)/100, euN, asOf};
-}
-function applyFtse(r, src){
-  state.data.mkt.tw = r.tw; state.data.mkt.kr = r.kr; state.data.mkt.cn = r.cn; state.data.mkt.eu = r.eu;
-  if(r.asOf) state.data.mkt.asOf = r.asOf;
-  save();
-  $("ftseLine").innerHTML = `✅ <b>${esc(src)}</b> (${r.asOf||"Stand unbekannt"}): Taiwan ${fmt(r.tw)} % · Korea ${fmt(r.kr)} % · China ${fmt(r.cn)} % · Europa ${fmt(r.eu)} % <span class="ticker-tag">(${r.euN} Länder erkannt)</span>`;
-}
-function parseHoldingsCsv(text){
-  const lines = text.split(/\r?\n/).filter(l => l.trim());
-  let hi = -1;
-  for(let i = 0; i < Math.min(lines.length, 40); i++){
-    if(/country|land|standort|domicile|location/i.test(lines[i])){ hi = i; break; }
-  }
-  if(hi < 0) return null;
-  const h = lines[hi];
-  const delim = (h.match(/;/g)||[]).length >= (h.match(/,/g)||[]).length ? ";" : (h.includes("\t") ? "\t" : ",");
-  const cols = h.split(delim).map(c => c.trim().toLowerCase());
-  const ci = cols.findIndex(c => /country|land|standort|domicile|location/.test(c));
-  let wi = cols.findIndex(c => /weight|gewicht|%/.test(c));
-  const dec = delim === ";" ? "," : ".";
-  const parseN = s => { s = (s||"").trim().replace(/\s|%/g,""); if(dec===",") s = s.replace(/\./g,"").replace(",","."); return parseFloat(s); };
-  const rows = [];
-  for(let i = hi+1; i < lines.length; i++){ const c = lines[i].split(delim); if(c.length > ci) rows.push(c); }
-  if(wi < 0){
-    const nCols = Math.max(...rows.map(r => r.length));
-    for(let c = 0; c < nCols; c++){
-      let sum = 0, n = 0;
-      rows.forEach(r => { const v = parseN(r[c]); if(!isNaN(v)){ sum += v; n++; } });
-      if(n > 20 && sum > 70 && sum < 130){ wi = c; break; }
-    }
-  }
-  if(wi < 0 || ci < 0) return null;
-  let euSum = 0, euN = 0, totSum = 0, totN = 0;
-  rows.forEach(r => {
-    const v = parseN(r[wi]);
-    if(isNaN(v)) return;
-    totSum += v; totN++;
-    if(isEu(r[ci])){ euSum += v; euN++; }
-  });
-  if(euN === 0 || totN < 20) return null;
-  if(totSum < 3) euSum *= 100; // Bruchzahlen statt Prozent
-  const dm = text.match(/\d{1,2}[.\/]\d{1,2}[.\/]\d{4}/) || text.match(/\d{1,2}\.\s*\w+\s+\d{4}/);
-  return {eu: Math.round(euSum*100)/100, euN, totN, asOf: dm ? dm[0] : null};
-}
-function applyHoldings(r, src){
-  state.data.world.eu = r.eu;
-  state.data.world.asOf = r.asOf || "CSV-Import";
-  save();
-  $("holdLine").innerHTML = `✅ <b>${esc(src)}</b> (${r.asOf||"ohne Datum"}): Europa im MSCI World = ${fmt(r.eu)} % <span class="ticker-tag">(${r.euN} europäische Länder aus ${r.totN} Positionen)</span>`;
-}
 async function refreshData(){
   const btn = $("btnRefresh"); btn.disabled = true; btn.textContent = "…";
   await Promise.all([loadGdp(), loadFf()]);
@@ -782,6 +686,9 @@ function refreshAll(rerenderInputs){
   if(rerenderInputs){ renderDataInputs(); }
   renderCompare(); renderSegs(); renderHoldings();
   renderStats(); renderAlloc(); renderLump(); renderReb(); renderSources();
+}
+function refreshResults(){ // wie refreshAll, aber ohne renderHoldings — das Eingabefeld behält den Fokus
+  renderCompare(); renderStats(); renderAlloc(); renderLump(); renderReb(); renderSources();
 }
 
 /* ================= EVENTS ================= */
@@ -800,31 +707,6 @@ $("btnTheme").addEventListener("click",()=>{
   state.theme = (state.theme||"dark")==="dark" ? "light" : "dark";
   save(); applyTheme();
 });
-$("btnImportFile").addEventListener("click", () => $("fileImport").click());
-$("fileImport").addEventListener("change", async ev => {
-  for(const f of ev.target.files){
-    try{
-      if(/\.pdf$/i.test(f.name)){
-        const r = parseFtse(await pdfToLines(await f.arrayBuffer()));
-        if(r){ applyFtse(r, f.name); toast("FTSE-Daten importiert"); }
-        else toast("PDF gelesen, aber keine Ländertabelle gefunden: "+f.name);
-      } else {
-        const r = parseHoldingsCsv(await f.text());
-        if(r){ applyHoldings(r, f.name); toast("Holdings importiert"); }
-        else toast("CSV gelesen, aber keine passenden Spalten: "+f.name);
-      }
-    }catch(e){ toast("Fehler beim Einlesen: "+f.name); }
-  }
-  ev.target.value = "";
-  refreshAll(true);
-});
-$("btnExample").addEventListener("click",()=>{
-  const ex = {base:3000, eu:500, cn:400, tw:150, kr:120};
-  state.etfs.forEach(e => { if(ex[e.id]!=null) e.value = ex[e.id]; });
-  state.lumpSum = 4000; state.monthly = 500;
-  save(); initInputs(); refreshAll(true); toast("Beispiel geladen – jetzt eigene Werte eintragen");
-});
-
 function initInputs(){
   $("lumpSum").value=state.lumpSum??"";
   $("monthly").value=state.monthly??"";
