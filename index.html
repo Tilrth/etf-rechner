@@ -63,6 +63,21 @@
   tbody tr:last-child td{border-bottom:none;}
   .num{text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap;}
   .scroll{overflow-x:auto; -webkit-overflow-scrolling:touch; margin:0 -6px; padding:0 6px;}
+  .plan-scroll{max-height:440px; overflow-y:auto;}
+  .plan-scroll thead th{position:sticky; top:-1px; background:var(--card); z-index:1; box-shadow:0 1px 0 var(--line);}
+  .donut{width:150px; height:150px; display:block;}
+  .donut-wrap{display:flex; align-items:center; gap:20px; flex-wrap:wrap;}
+  .donut-pair{display:flex; gap:24px; justify-content:space-evenly; flex-wrap:wrap;}
+  .donut-box{text-align:center;}
+  .donut-cap{margin-top:6px; font-size:12px; color:var(--muted); font-weight:700; letter-spacing:.06em;}
+  .donut-legend{flex:1; min-width:190px;}
+  .leg-row{display:flex; align-items:center; gap:9px; padding:4px 0; font-size:13.5px;}
+  .leg-row .num{margin-left:auto; font-weight:600; font-variant-numeric:tabular-nums;}
+  .leg-dot{width:10px; height:10px; border-radius:3px; flex-shrink:0;}
+  .leg-horiz{display:flex; flex-wrap:wrap; gap:2px 20px; margin-top:8px;}
+  .leg-horiz .leg-row{padding:3px 0;}
+  .chart-label{fill:var(--muted); font-size:11.5px;}
+  .chart-grid{stroke:var(--line); stroke-width:1;}
   .pill{display:inline-block; font-size:10.5px; font-weight:600; padding:2px 9px; border-radius:20px;
     background:rgba(61,220,151,.12); color:var(--green);}
   .pill.warn{background:rgba(255,206,107,.12); color:var(--amber);}
@@ -70,7 +85,7 @@
   .alert{border:1px solid rgba(255,206,107,.35); background:rgba(255,206,107,.07); border-radius:12px;
     padding:12px 14px; margin-top:12px; font-size:13.5px; line-height:1.55;}
   .disclaimer{font-size:11.5px; color:var(--muted); line-height:1.55; margin:0 2px 16px; padding-left:20px; position:relative;}
-  .disclaimer::before{content:"ⓘ"; position:absolute; left:2px; top:0; color:var(--amber);}
+  .disclaimer::before{content:"ⓘ"; position:absolute; left:2px; top:0; color:var(--text);}
   .disclaimer b{color:var(--text); font-weight:600;}
   .seg{display:flex; gap:4px; background:var(--field); border:1px solid var(--line);
     border-radius:12px; padding:4px; margin:4px 0 12px;}
@@ -90,7 +105,7 @@
   .bars{position:relative; height:14px; background:var(--track); border-radius:7px;}
   .bar{position:absolute; left:0; top:0; height:14px; border-radius:7px;
     background:linear-gradient(90deg,var(--accent2),var(--accent)); transition:width .45s ease;}
-  .tick{position:absolute; top:-3px; width:2px; height:20px; background:var(--amber); border-radius:1px; transform:translateX(-1px);}
+  .tick{position:absolute; top:-3px; width:2px; height:20px; background:var(--text); border-radius:1px; transform:translateX(-1px);}
   .diff.up{color:var(--green);} .diff.down{color:var(--red);}
   .footer-src{font-size:11.5px; color:var(--muted); line-height:1.6;}
   .footer-src td{font-size:11.5px; padding:6px 4px;}
@@ -109,7 +124,7 @@
   .ticker-tag{font-size:11px; color:var(--muted); font-weight:400;}
 
   /* Statistik-Leiste */
-  .stats{display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:14px;}
+  .stats{display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:14px;}
   .stat{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:11px 13px;}
   .stat .l{font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:.7px;}
   .stat .v{font-size:17px; font-weight:700; margin-top:3px; font-variant-numeric:tabular-nums; letter-spacing:-.2px;}
@@ -133,7 +148,7 @@
     th, td{padding-left:8px; padding-right:8px;}
     table{font-size:14px;}
     header h1{font-size:24px;}
-    .stats{gap:12px;}
+    .stats{gap:12px; grid-template-columns:repeat(6,1fr);}
   }
 
   /* Desktop */
@@ -151,8 +166,17 @@
     details.advanced>summary:hover{background:var(--hover);}
   }
   @media (min-width: 1400px){
-    .wrap{max-width:1280px;}
+    .wrap{max-width:1460px; grid-template-columns:1.15fr 1fr 1fr; column-gap:20px; row-gap:20px;}
+    .span2{grid-column:span 2;}
+    header{order:0;}
+    #cardModes{order:1;} #cardHold{order:2;} #cardAlloc{order:3;}
+    #cardNorm{order:4;} #cardReb{order:5; grid-column:1 / -1;}
+    #cardChartTarget{order:6;} #cardChartIst{order:7; grid-column:span 2;}
+    #cardChartConv{order:8; grid-column:1 / -1;}
+    .stats{order:9;} details.advanced{order:10;}
+    .disclaimer{order:11;}
     table{font-size:14.5px;}
+    .plan-scroll{max-height:520px;}
   }
 
   /* Kleine Screens: Modi untereinander, Buttons kompakt */
@@ -191,15 +215,8 @@
     </div>
   </header>
 
-  <div class="stats" id="statStrip">
-    <div class="stat"><div class="l">Portfoliowert</div><div class="v" id="stValue">–</div></div>
-    <div class="stat"><div class="l">Einmalbetrag</div><div class="v" id="stLump">–</div></div>
-    <div class="stat"><div class="l">Sparrate / Monat</div><div class="v" id="stMonthly">–</div></div>
-    <div class="stat"><div class="l">BIP-Stand</div><div class="v" id="stGdp">–</div></div>
-  </div>
-
   <!-- SCHRITT 1: Modi -->
-  <div class="card">
+  <div class="card" id="cardModes">
     <h2><span class="step">1</span>Ziel-Modi wählen</h2>
     <div class="scroll"><table id="cmpTable">
       <thead><tr><th>ETF</th><th class="num">China: Markt<br>Europa: Mitte</th><th class="num">China: BIP<br>Europa: BIP</th><th class="num">China: Mitte<br>Europa: Mitte</th></tr></thead>
@@ -221,8 +238,20 @@
     </div>
   </div>
 
+  <!-- NORMALE VERTEILUNG -->
+  <div class="card" id="cardNorm">
+    <h2>Normale Verteilung (auf Zielgewicht)</h2>
+    <div class="row">
+      <div class="field"><label>Sparrate (€)</label><input id="normRate" type="number" step="any" inputmode="decimal" placeholder="z. B. 370"></div>
+    </div>
+    <div class="scroll" style="margin-top:10px;"><table id="normTable">
+      <thead><tr><th>ETF</th><th class="num">Anteil</th><th class="num">Betrag (€)</th></tr></thead>
+      <tbody></tbody>
+    </table></div>
+  </div>
+
   <!-- SCHRITT 2: Bestand -->
-  <div class="card span2">
+  <div class="card span2" id="cardHold">
     <h2><span class="step">2</span>Bestand & Einzahlung</h2>
     <div class="scroll"><table id="holdTable">
       <thead><tr><th>ETF</th><th class="num">Wert (€)</th></tr></thead>
@@ -235,7 +264,7 @@
   </div>
 
   <!-- SCHRITT 3: Ergebnisse -->
-  <div class="card span2">
+  <div class="card span2" id="cardAlloc">
     <h2><span class="step">3</span>Ziel-Allokation & Überlappungs-Abzug</h2>
     <div class="scroll"><table id="allocTable">
       <thead><tr><th>ETF</th><th class="num">Ziel-Exposure</th><th class="num" id="thBasis">aus Basis</th><th class="num">Satellit</th><th class="num">Gesamt</th><th class="num">Check</th></tr></thead>
@@ -252,15 +281,42 @@
       <thead><tr><th>ETF</th><th class="num">Ist %</th><th class="num">Ziel %</th><th class="num">Drift</th><th class="num">Kauf Monat 1 (€)</th></tr></thead>
       <tbody></tbody>
     </table></div>
-    <p class="hint" id="rebNote"></p>
     <div id="planWrap">
       <h2 style="margin-top:22px;">Monatsplan bis zum Zielgewicht</h2>
       <p class="hint" id="planSummary" style="margin-top:0;"></p>
-      <div class="scroll" style="margin-top:8px;"><table id="planTable">
-        <thead><tr><th>Monat</th><th class="num">World</th><th class="num">Europa</th><th class="num">China</th><th class="num">Taiwan</th><th class="num">Korea</th><th class="num">Summe (€)</th></tr></thead>
+      <div class="scroll plan-scroll" style="margin-top:8px;"><table id="planTable">
+        <thead id="planHead"></thead>
         <tbody></tbody>
       </table></div>
     </div>
+  </div>
+
+  <!-- Diagramme -->
+  <div class="card" id="cardChartTarget">
+    <h2>Ziel-Allokation</h2>
+    <div class="donut-wrap">
+      <div id="chartTarget"></div>
+      <div class="donut-legend" id="legendTarget"></div>
+    </div>
+  </div>
+
+  <div class="card" id="cardChartIst">
+    <h2>Ist vs. Ziel</h2>
+    <div id="chartIstWrap"></div>
+  </div>
+
+  <div class="card span2" id="cardChartConv">
+    <h2>Weg zum Zielgewicht</h2>
+    <div id="chartConv"></div>
+  </div>
+
+  <div class="stats" id="statStrip">
+    <div class="stat"><div class="l">Portfoliowert</div><div class="v" id="stValue">–</div></div>
+    <div class="stat"><div class="l">Einmalbetrag</div><div class="v" id="stLump">–</div></div>
+    <div class="stat"><div class="l">Sparrate / Monat</div><div class="v" id="stMonthly">–</div></div>
+    <div class="stat"><div class="l">Monate bis Ziel</div><div class="v" id="stMonths">–</div></div>
+    <div class="stat"><div class="l">BIP-Stand</div><div class="v" id="stGdp">–</div></div>
+    <div class="stat"><div class="l">Stand Gewichte</div><div class="v" id="stMkt">–</div></div>
   </div>
 
   <details class="advanced" id="advDetails">
@@ -320,13 +376,13 @@ const DEFAULTS = {
     modes:{cn:"mc", eu:"mid"}
   },
   etfs:[
-    {id:"base", name:"UBS Core MSCI World (Acc)",  index:"MSCI World",  value:null},
-    {id:"eu",   name:"SPDR MSCI Europe (Acc)",     index:"MSCI Europe", value:null},
-    {id:"cn",   name:"HSBC MSCI China (Acc)",      index:"MSCI China",  value:null},
-    {id:"tw",   name:"Franklin FTSE Taiwan (Acc)", index:"FTSE Taiwan", value:null},
-    {id:"kr",   name:"Franklin FTSE Korea (Acc)",  index:"FTSE Korea",  value:null}
+    {id:"base", name:"MSCI World Momentum",   index:"MSCI World",  value:null},
+    {id:"eu",   name:"MSCI Europe Momentum",  index:"MSCI Europe", value:null},
+    {id:"cn",   name:"MSCI China",            index:"MSCI China",  value:null},
+    {id:"tw",   name:"FTSE Taiwan",           index:"FTSE Taiwan", value:null},
+    {id:"kr",   name:"FTSE Korea",            index:"FTSE Korea",  value:null}
   ],
-  lumpSum:null, monthly:null
+  lumpSum:null, monthly:null, normRate:null
 };
 let state = load() || JSON.parse(JSON.stringify(DEFAULTS));
 // Migration älterer Speicherstände
@@ -337,9 +393,9 @@ delete state.data.cls; delete state.data.clsAsOf; delete state.data.clsAnn; dele
 delete state.rebMode;
 if(state.data.modes && state.data.modes.eu === "mc") state.data.modes.eu = "mid";
 {
-  const meta = {base:{name:"UBS Core MSCI World (Acc)",index:"MSCI World"}, eu:{name:"SPDR MSCI Europe (Acc)",index:"MSCI Europe"},
-    cn:{name:"HSBC MSCI China (Acc)",index:"MSCI China"}, tw:{name:"Franklin FTSE Taiwan (Acc)",index:"FTSE Taiwan"},
-    kr:{name:"Franklin FTSE Korea (Acc)",index:"FTSE Korea"}};
+  const meta = {base:{name:"MSCI World Momentum",index:"MSCI World"}, eu:{name:"MSCI Europe Momentum",index:"MSCI Europe"},
+    cn:{name:"MSCI China",index:"MSCI China"}, tw:{name:"FTSE Taiwan",index:"FTSE Taiwan"},
+    kr:{name:"FTSE Korea",index:"FTSE Korea"}};
   state.etfs.forEach(e => {
     const m = meta[e.id];
     if(m){ e.name = m.name; e.index = m.index; }
@@ -362,6 +418,16 @@ function applyTheme(){
 function toast(m, d=2800){ const t=$("toast"); t.textContent=m; t.classList.add("show"); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove("show"),d); }
 const $ = id => document.getElementById(id);
 const fmt = (n,d=2) => n==null||isNaN(n)?"–":n.toLocaleString("de-DE",{minimumFractionDigits:d,maximumFractionDigits:d});
+function roundConsistent(vals){ // {id: Betrag} -> {id: ganze Euro}; die Summe bleibt exakt erhalten (größter Rest)
+  const ids = Object.keys(vals);
+  const total = Math.round(ids.reduce((a,id)=>a+(vals[id]||0),0));
+  const out = {}, fr = [];
+  let sum = 0;
+  ids.forEach(id => { const v = Math.max(0, vals[id]||0), f = Math.floor(v); out[id]=f; sum+=f; fr.push([v-f,id]); });
+  fr.sort((a,b)=>b[0]-a[0]);
+  for(let i=0; i<total-sum && i<fr.length; i++) out[fr[i][1]]++;
+  return out;
+}
 const esc = s => String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const num = v => { if(v==null||v==="")return null; const n=parseFloat(String(v).replace(",",".")); return isNaN(n)?null:n; };
 
@@ -398,6 +464,7 @@ function etfWeights(sol){ // id -> Gewicht
 
 /* ================= RENDER ================= */
 function etfName(id){ const e = state.etfs.find(x => x.id === id); return e ? e.name : id; }
+function etfsSorted(wts){ return [...state.etfs].sort((a,b) => (wts[b.id]||0) - (wts[a.id]||0)); } // größte Position zuerst
 
 function renderCompare(){
   const tb = $("cmpTable").querySelector("tbody"); tb.innerHTML="";
@@ -410,7 +477,6 @@ function renderCompare(){
     tb.appendChild(tr);
   };
   row("<b>China – Gesamt-Exposure</b>", s => eff(s,"cn"), true);
-  row("<span style='color:var(--muted)'>→ davon China-ETF</span>", s => s.s.cn);
   row("<b>Europa – Gesamt-Exposure</b>", s => eff(s,"eu"), true);
   row("<span style='color:var(--muted)'>→ davon Europa-ETF</span>", s => s.s.eu);
   row(etfName("base")+" (Rest)", s => s.b);
@@ -438,7 +504,7 @@ function renderHoldings(){
   tb.innerHTML="";
   state.etfs.forEach(e => {
     const tr = document.createElement("tr");
-    tr.innerHTML = `<td>${esc(e.name)}<br><span class="ticker-tag">${esc(e.index||"")}</span></td>
+    tr.innerHTML = `<td>${esc(e.name)}${e.index && e.index!==e.name ? `<br><span class="ticker-tag">${esc(e.index)}</span>` : ""}</td>
       <td class="num"><input data-h="value" data-id="${e.id}" type="text" inputmode="decimal" autocomplete="off" value="${e.value??""}" placeholder="0" style="width:110px;padding:7px 8px;font-size:14px;text-align:right;"></td>`;
     tb.appendChild(tr);
   });
@@ -457,31 +523,43 @@ function renderHoldings(){
 function renderAlloc(){
   const sol = solve();
   const tb = $("allocTable").querySelector("tbody"); tb.innerHTML="";
-  SAT.forEach(k => {
-    const eff = sol.s[k] + sol.w[k]*sol.b;
-    const ok = Math.abs(eff - sol.t[k]) < 0.0005;
-    const tr = document.createElement("tr"); tr.className="etfrow";
-    tr.innerHTML = `<td>${etfName(k)}</td>
-      <td class="num">${fmt(sol.t[k]*100,2)} %</td>
-      <td class="num">${fmt(sol.w[k]*sol.b*100,2)} %</td>
-      <td class="num"><b>${fmt(sol.s[k]*100,2)} %</b></td>
-      <td class="num"><b>${fmt(eff*100,2)} %</b></td>
-      <td class="num">${ok?'<span class="pill">✓</span>':'<span class="pill danger">!</span>'}</td>`;
+  const rows = SAT.map(k => ({id:k, share:sol.s[k]}));
+  rows.push({id:"base", share:sol.b});
+  rows.sort((a,b) => b.share - a.share); // größte Allokation oben
+  rows.forEach(r => {
+    const k = r.id, tr = document.createElement("tr"); tr.className="etfrow";
+    if(k === "base"){
+      tr.innerHTML = `<td>${etfName("base")}</td>
+        <td class="num">${fmt(sol.b*100,2)} %</td>
+        <td class="num">${fmt(sol.b*100,2)} %</td>
+        <td class="num"><b>${fmt(0,2)} %</b></td>
+        <td class="num"><b>${fmt(sol.b*100,2)} %</b></td>
+        <td class="num"><span class="pill">✓</span></td>`;
+    } else {
+      const eff = sol.s[k] + sol.w[k]*sol.b;
+      const ok = Math.abs(eff - sol.t[k]) < 0.0005;
+      tr.innerHTML = `<td>${etfName(k)}</td>
+        <td class="num">${fmt(sol.t[k]*100,2)} %</td>
+        <td class="num">${fmt(sol.w[k]*sol.b*100,2)} %</td>
+        <td class="num"><b>${fmt(sol.s[k]*100,2)} %</b></td>
+        <td class="num"><b>${fmt(eff*100,2)} %</b></td>
+        <td class="num">${ok?'<span class="pill">✓</span>':'<span class="pill danger">!</span>'}</td>`;
+    }
     tb.appendChild(tr);
   });
-  const trB = document.createElement("tr"); trB.className="etfrow";
-  trB.innerHTML = `<td>${etfName("base")}</td><td class="num">Rest</td><td class="num">–</td><td class="num"><b>${fmt(sol.b*100,2)} %</b></td><td class="num">–</td><td></td>`;
-  tb.appendChild(trB);
-  // Gesamt-Exposure-Zusammenfassung
+  // Gesamt-Exposure-Zusammenfassung (absteigend)
   const effK = k => sol.s[k] + sol.w[k]*sol.b;
-  $("expoSummary").innerHTML = `<b style="color:var(--text)">Gesamt-Exposure im Portfolio:</b> Europa <b style="color:var(--text)">${fmt(effK("eu")*100,1)} %</b> · China <b style="color:var(--text)">${fmt(effK("cn")*100,1)} %</b> · Taiwan <b style="color:var(--text)">${fmt(effK("tw")*100,1)} %</b> · Korea <b style="color:var(--text)">${fmt(effK("kr")*100,1)} %</b> — jeweils inklusive des Anteils, der bereits im MSCI World steckt.`;
-  // Balken
+  const expo = [["Europa",effK("eu")],["China",effK("cn")],["Taiwan",effK("tw")],["Korea",effK("kr")]].sort((a,b)=>b[1]-a[1]);
+  $("expoSummary").innerHTML = `<b style="color:var(--text)">Gesamt-Exposure im Portfolio:</b> ` +
+    expo.map(([n,v]) => `${n} <b style="color:var(--text)">${fmt(v*100,1)} %</b>`).join(" · ") +
+    ` — jeweils inklusive des Anteils, der bereits im MSCI World steckt.`;
+  // Balken (absteigend nach Zielgewicht)
   const box = $("allocBars"); box.innerHTML="";
   const wts = etfWeights(sol);
-  ["base","tw","kr","cn","eu"].forEach(id => {
+  etfsSorted(wts).forEach(e => {
     const div = document.createElement("div"); div.className="bar-row";
-    div.innerHTML = `<div class="bar-label"><span>${etfName(id)}</span><span>${fmt(wts[id]*100,2)} %</span></div>
-      <div class="bars"><div class="bar" style="width:${Math.min(wts[id]*100,100)}%"></div></div>`;
+    div.innerHTML = `<div class="bar-label"><span>${esc(e.name)}</span><span>${fmt(wts[e.id]*100,2)} %</span></div>
+      <div class="bars"><div class="bar" style="width:${Math.min(wts[e.id]*100,100)}%"></div></div>`;
     box.appendChild(div);
   });
 }
@@ -501,40 +579,49 @@ function renderStats(){
   $("stLump").textContent = state.lumpSum ? fmt(state.lumpSum,0)+" €" : "–";
   $("stMonthly").textContent = state.monthly ? fmt(state.monthly,0)+" €" : "–";
   $("stGdp").textContent = state.data.gdp.asOf || "–";
+  $("stMkt").textContent = state.data.mkt.asOf || "–";
+  const P = simulatePlan();
+  $("stMonths").textContent = P.converged ? String(P.months.length) : (P.months.length ? "offen" : "–");
+}
+
+function simulatePlan(){ // Monats-Simulation — nur Käufe (Waterfill auf die Lücken zum Ziel)
+  const ORDER = ["base","eu","cn","tw","kr"];
+  const {V, vals} = holdingsValue();
+  const L = state.lumpSum||0, monthly = state.monthly||0;
+  const wts = etfWeights(solve());
+  const months = [];
+  const cur = {...vals}; let curV = V, converged = false, m = 0;
+  if(V>0 || L>0 || monthly>0){
+    while(m < 600){
+      m++;
+      const C = (m===1 ? L + monthly : monthly);
+      if(C <= 0){ break; }
+      const after = curV + C;
+      const gaps = {}; let gapSum = 0;
+      ORDER.forEach(id => { gaps[id] = Math.max(0, after*wts[id] - cur[id]); gapSum += gaps[id]; });
+      const buys = {}; let done = false;
+      if(gapSum < 0.005){ ORDER.forEach(id => buys[id] = C*wts[id]); done = true; }
+      else if(gapSum <= C + 0.005){ ORDER.forEach(id => buys[id] = gaps[id] + (C-gapSum)*wts[id]); done = true; }
+      else ORDER.forEach(id => buys[id] = C*gaps[id]/gapSum);
+      ORDER.forEach(id => { cur[id] += buys[id]; });
+      curV = after;
+      months.push({m, buys, total:C});
+      if(done){ converged = true; break; }
+    }
+  }
+  return {months, converged, wts, V, vals, L, monthly, ORDER, cur, curV};
 }
 
 function renderReb(){
-  const ORDER = ["base","eu","cn","tw","kr"];
-  const {V, vals} = holdingsValue();
+  const {months, converged, wts, V, vals, L, monthly, ORDER, cur, curV} = simulatePlan();
   const card = $("cardReb");
-  const L = state.lumpSum||0, monthly = state.monthly||0;
   if(V<=0 && L<=0 && monthly<=0){ card.classList.add("hidden"); return; }
   card.classList.remove("hidden");
-  const wts = etfWeights(solve());
-
-  // Monats-Simulation — nur Käufe (Waterfill auf die Lücken zum Ziel)
-  const months = [];
-  const cur = {...vals}; let curV = V, converged = false, m = 0;
-  while(m < 600){
-    m++;
-    const C = (m===1 ? L + monthly : monthly);
-    if(C <= 0){ break; }
-    const after = curV + C;
-    const gaps = {}; let gapSum = 0;
-    ORDER.forEach(id => { gaps[id] = Math.max(0, after*wts[id] - cur[id]); gapSum += gaps[id]; });
-    const buys = {}; let done = false;
-    if(gapSum < 0.005){ ORDER.forEach(id => buys[id] = C*wts[id]); done = true; }
-    else if(gapSum <= C + 0.005){ ORDER.forEach(id => buys[id] = gaps[id] + (C-gapSum)*wts[id]); done = true; }
-    else ORDER.forEach(id => buys[id] = C*gaps[id]/gapSum);
-    ORDER.forEach(id => { cur[id] += buys[id]; });
-    curV = after;
-    months.push({m, buys, total:C});
-    if(done){ converged = true; break; }
-  }
+  const cols = etfsSorted(wts).map(e => e.id); // Spalten absteigend nach Zielgewicht
 
   // Drift-Balken
   const db = $("driftBars"); db.innerHTML="";
-  state.etfs.forEach(e => {
+  etfsSorted(wts).forEach(e => {
     const c = V>0 ? vals[e.id]/V*100 : 0, tgt = wts[e.id]*100, diff = c-tgt;
     const div = document.createElement("div"); div.className="bar-row";
     div.innerHTML = `<div class="bar-label"><span>${esc(e.name)}</span>
@@ -543,28 +630,18 @@ function renderReb(){
     db.appendChild(div);
   });
 
-  // Monat-1-Tabelle
+  // Monat-1-Tabelle (Beträge ganzzahlig, Spaltensumme exakt)
   const tb = $("rebTable").querySelector("tbody"); tb.innerHTML="";
   const first = months[0];
-  state.etfs.forEach(e => {
+  const r1 = first ? roundConsistent(first.buys) : {};
+  etfsSorted(wts).forEach(e => {
     const c = V>0 ? vals[e.id]/V*100 : 0, tgt = wts[e.id]*100;
-    const amt = first ? first.buys[e.id] : 0;
     const tr = document.createElement("tr"); tr.className="etfrow";
     tr.innerHTML = `<td>${esc(e.name)}</td><td class="num">${fmt(c,1)}</td><td class="num">${fmt(tgt,1)}</td>
       <td class="num diff ${c-tgt>=0?"up":"down"}">${c-tgt>=0?"+":""}${fmt(c-tgt,1)}</td>
-      <td class="num">${amt>0.004?`<b>+${fmt(amt)}</b>`:"–"}</td>`;
+      <td class="num">${first&&r1[e.id]>0?`<b>+${fmt(r1[e.id],0)}</b>`:"–"}</td>`;
     tb.appendChild(tr);
   });
-
-  // Notiz unter Monat 1
-  if(first){
-    const parts = [];
-    if(L>0) parts.push(`Einmalbetrag ${fmt(L)}`);
-    if(monthly>0) parts.push(`Sparrate ${fmt(monthly)}`);
-    $("rebNote").innerHTML = `Portfoliowert: <b>${fmt(V)} €</b> · Monat 1 verfügbar: <b>${fmt(first.total)} €</b> (${parts.join(" + ")}) → danach <b>${fmt(V+first.total)} €</b>.`;
-  } else {
-    $("rebNote").innerHTML = `Portfoliowert: <b>${fmt(V)} €</b> — trage Einmalbetrag und/oder Sparrate ein, um den Kaufplan zu sehen.`;
-  }
 
   // Monatsplan
   const wrap = $("planWrap");
@@ -572,21 +649,25 @@ function renderReb(){
   if(months.length>0){
     if(converged){
       const src = [];
-      if(L>0) src.push(`Einmalbetrag <b>${fmt(L)} €</b>`);
-      if(monthly>0) src.push(`Sparrate <b>${fmt(monthly)} €</b>/Monat`);
+      if(L>0) src.push(`Einmalbetrag <b>${fmt(L,0)} €</b>`);
+      if(monthly>0) src.push(`Sparrate <b>${fmt(monthly,0)} €</b>/Monat`);
       const m1txt = (L>0 && monthly>0) ? "Einmalbetrag + erste Sparrate" : (L>0 ? "den Einmalbetrag" : "die erste Sparrate");
       $("planSummary").innerHTML = `Mit ${src.join(" + ")} bist du in <b>${months.length} ${months.length===1?"Monat":"Monaten"}</b> vollständig auf Zielgewicht — nur durch Käufe, ohne Verkäufe. Monat 1 enthält ${m1txt}.`;
     } else {
       let gapSum = 0;
       ORDER.forEach(id => { gapSum += Math.max(0, curV*wts[id] - cur[id]); });
-      $("planSummary").innerHTML = `Mit dem Einmalbetrag allein nicht vollständig erreichbar — danach bleiben noch ≈ <b>${fmt(gapSum)} €</b> Lücke zu den Zielgewichten. Eine monatliche Sparrate schließt die Lücke über die Zeit (nur durch Käufe).`;
+      $("planSummary").innerHTML = `Mit dem Einmalbetrag allein nicht vollständig erreichbar — danach bleiben noch ≈ <b>${fmt(gapSum,0)} €</b> Lücke zu den Zielgewichten. Eine monatliche Sparrate schließt die Lücke über die Zeit (nur durch Käufe).`;
     }
     const pb = $("planTable").querySelector("tbody"); pb.innerHTML="";
+    const SHORT = {base:"World", eu:"Europa", cn:"China", tw:"Taiwan", kr:"Korea"};
+    $("planHead").innerHTML = `<tr><th>Monat</th>${cols.map(id=>`<th class="num">${SHORT[id]}</th>`).join("")}<th class="num">Summe (€)</th></tr>`;
     const MAXROWS = 36;
     const renderRow = row => {
       const tr = document.createElement("tr");
-      const cells = ORDER.map(id => `<td class="num">${row.buys[id]>0.004?fmt(row.buys[id]):"–"}</td>`).join("");
-      tr.innerHTML = `<td>${row.m}${row.m===1&&L>0?' <span class="ticker-tag">inkl. Einmalbetrag</span>':""}</td>${cells}<td class="num"><b>${fmt(row.total)}</b></td>`;
+      const rb = roundConsistent(row.buys);
+      const cells = cols.map(id => `<td class="num">${rb[id]>0?fmt(rb[id],0):"–"}</td>`).join("");
+      const rowSum = cols.reduce((a,id)=>a+rb[id],0);
+      tr.innerHTML = `<td>${row.m}${row.m===1&&L>0?' <span class="ticker-tag">inkl. Einmalbetrag</span>':""}</td>${cells}<td class="num"><b>${fmt(rowSum,0)}</b></td>`;
       pb.appendChild(tr);
     };
     if(months.length <= MAXROWS){
@@ -594,10 +675,95 @@ function renderReb(){
     } else {
       months.slice(0, MAXROWS-1).forEach(renderRow);
       const tr = document.createElement("tr");
-      tr.innerHTML = `<td colspan="7" class="ticker-tag">… Monate ${MAXROWS}–${months.length-1} im gleichen Muster …</td>`;
+      tr.innerHTML = `<td colspan="${cols.length+2}" class="ticker-tag">… Monate ${MAXROWS}–${months.length-1} im gleichen Muster …</td>`;
       pb.appendChild(tr);
       renderRow(months[months.length-1]); // Ziel-Monat immer zeigen
     }
+  }
+}
+
+function renderNorm(){
+  const r = state.normRate ?? state.monthly;
+  const tb = $("normTable").querySelector("tbody"); tb.innerHTML="";
+  const wts = etfWeights(solve());
+  const raw = {}; state.etfs.forEach(e => raw[e.id] = r>0 ? r*wts[e.id] : 0);
+  const rn = roundConsistent(raw);
+  etfsSorted(wts).forEach(e => {
+    const tr = document.createElement("tr"); tr.className="etfrow";
+    tr.innerHTML = `<td>${esc(e.name)}</td><td class="num">${fmt(wts[e.id]*100,2)} %</td><td class="num">${r>0?`<b>${fmt(rn[e.id],0)}</b>`:"–"}</td>`;
+    tb.appendChild(tr);
+  });
+}
+
+/* ================= DIAGRAMME ================= */
+const ETF_COLORS = {base:"#5b8def", eu:"#ffce6b", cn:"#3ddc97", tw:"#4fd1c5", kr:"#b48def"};
+function donutSVG(fracs){ // {id: Anteil 0..1} — Donut im Logo-Stil, größtes Segment zuerst
+  const r = 42, c = 2*Math.PI*r;
+  let off = 0, segs = "";
+  Object.keys(ETF_COLORS).sort((a,b) => (fracs[b]||0) - (fracs[a]||0)).forEach(id => {
+    const f = fracs[id]||0;
+    if(f <= 0.0005) return;
+    const len = f*c;
+    segs += `<circle cx="60" cy="60" r="${r}" fill="none" stroke="${ETF_COLORS[id]}" stroke-width="17" stroke-dasharray="${len.toFixed(2)} ${(c-len).toFixed(2)}" stroke-dashoffset="${(-off).toFixed(2)}" transform="rotate(-90 60 60)"/>`;
+    off += len;
+  });
+  return `<svg viewBox="0 0 120 120" class="donut">${segs}</svg>`;
+}
+
+function renderCharts(){
+  const wts = etfWeights(solve());
+  // Ziel-Donut
+  $("chartTarget").innerHTML = donutSVG(wts);
+  $("legendTarget").innerHTML = etfsSorted(wts).map(e =>
+    `<div class="leg-row"><span class="leg-dot" style="background:${ETF_COLORS[e.id]}"></span><span>${esc(e.name)}</span><span class="num">${fmt(wts[e.id]*100,1)} %</span></div>`).join("");
+  // Ist vs. Ziel
+  const {V, vals} = holdingsValue();
+  const wrap = $("chartIstWrap");
+  if(V<=0){
+    wrap.innerHTML = `<p class="hint">Trage deinen Bestand ein, um die Ist-Allokation zu sehen.</p>`;
+  } else {
+    const ist = {}; state.etfs.forEach(e => ist[e.id] = vals[e.id]/V);
+    wrap.innerHTML = `<div class="donut-pair">
+        <div class="donut-box">${donutSVG(ist)}<div class="donut-cap">Ist</div></div>
+        <div class="donut-box">${donutSVG(wts)}<div class="donut-cap">Ziel</div></div>
+      </div>
+      <div class="donut-legend" style="margin-top:12px;">${etfsSorted(wts).map(e =>
+        `<div class="leg-row"><span class="leg-dot" style="background:${ETF_COLORS[e.id]}"></span><span>${esc(e.name)}</span><span class="num">${fmt(ist[e.id]*100,1)} → ${fmt(wts[e.id]*100,1)} %</span></div>`).join("")}</div>`;
+  }
+  // Weg zum Zielgewicht — gestapelte Fläche über die Plan-Monate
+  const P = simulatePlan();
+  const conv = $("chartConv");
+  if(P.months.length===0){
+    conv.innerHTML = `<p class="hint">Trage Einmalbetrag und/oder Sparrate ein, um den Verlauf zu sehen.</p>`;
+  } else {
+    const pts = [{m:0, v:{...P.vals}}];
+    const cur = {...P.vals};
+    P.months.forEach(mo => { P.ORDER.forEach(id => cur[id]+=mo.buys[id]); pts.push({m:mo.m, v:{...cur}}); });
+    const W=680, H=270, pl=62, pr=10, pt=12, pb=30, n=pts.length;
+    const maxV = Math.max(...pts.map(p => P.ORDER.reduce((a,id)=>a+p.v[id],0))) * 1.02;
+    const X = i => pl + (W-pl-pr) * (n===1?0:i/(n-1));
+    const Y = v => H-pb - (H-pt-pb) * v/maxV;
+    let svg = "";
+    [0, 0.5, 1].forEach(f => {
+      const vv = maxV*f;
+      svg += `<line x1="${pl}" y1="${Y(vv)}" x2="${W-pr}" y2="${Y(vv)}" class="chart-grid"/>`;
+      svg += `<text x="${pl-8}" y="${Y(vv)+4}" text-anchor="end" class="chart-label">${f===0?"0":fmt(vv,0)+" €"}</text>`;
+    });
+    const tickIdx = [...new Set([0, Math.round((n-1)*0.25), Math.round((n-1)*0.5), Math.round((n-1)*0.75), n-1])].sort((a,b)=>a-b);
+    tickIdx.forEach(i => {
+      const last = i === n-1;
+      svg += `<text x="${last ? W-pr : X(i)}" y="${H-8}" text-anchor="${last?"end":"middle"}" class="chart-label">${pts[i].m===0?"jetzt":"Monat "+pts[i].m}</text>`;
+    });
+    const cum = new Array(n).fill(0);
+    const sIds = etfsSorted(P.wts).map(e => e.id); // größte Fläche unten, Legende absteigend
+    sIds.forEach(id => {
+      const top = [], bot = [];
+      pts.forEach((p,i) => { const c0 = cum[i], c1 = c0 + p.v[id]; top.push(`${X(i).toFixed(1)},${Y(c1).toFixed(1)}`); bot.unshift(`${X(i).toFixed(1)},${Y(c0).toFixed(1)}`); cum[i] = c1; });
+      svg += `<polygon points="${top.concat(bot).join(" ")}" fill="${ETF_COLORS[id]}" fill-opacity="0.85"/>`;
+    });
+    conv.innerHTML = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block;">${svg}</svg>
+      <div class="leg-horiz">${etfsSorted(P.wts).map(e =>
+        `<div class="leg-row"><span class="leg-dot" style="background:${ETF_COLORS[e.id]}"></span><span>${esc(e.name)}</span></div>`).join("")}</div>`;
   }
 }
 
@@ -695,10 +861,10 @@ async function refreshData(){
 function refreshAll(rerenderInputs){
   if(rerenderInputs){ renderDataInputs(); }
   renderCompare(); renderSegs(); renderHoldings();
-  renderStats(); renderAlloc(); renderReb(); renderSources();
+  renderStats(); renderAlloc(); renderReb(); renderNorm(); renderCharts(); renderSources();
 }
 function refreshResults(){ // wie refreshAll, aber ohne renderHoldings — das Eingabefeld behält den Fokus
-  renderCompare(); renderStats(); renderAlloc(); renderReb(); renderSources();
+  renderCompare(); renderStats(); renderAlloc(); renderReb(); renderNorm(); renderCharts(); renderSources();
 }
 
 /* ================= EVENTS ================= */
@@ -711,6 +877,7 @@ document.querySelectorAll("[data-d]").forEach(inp=>inp.addEventListener("input",
 }));
 $("lumpSum").addEventListener("input",e=>{state.lumpSum=num(e.target.value);save();refreshAll(false);});
 $("monthly").addEventListener("input",e=>{state.monthly=num(e.target.value);save();refreshAll(false);});
+$("normRate").addEventListener("input",e=>{state.normRate=num(e.target.value);save();renderNorm();});
 $("btnRefresh").addEventListener("click",refreshData);
 $("btnTheme").addEventListener("click",()=>{
   state.theme = (state.theme||"dark")==="dark" ? "light" : "dark";
@@ -719,6 +886,7 @@ $("btnTheme").addEventListener("click",()=>{
 function initInputs(){
   $("lumpSum").value=state.lumpSum??"";
   $("monthly").value=state.monthly??"";
+  $("normRate").value=state.normRate ?? state.monthly ?? "";
 }
 
 /* Inline-Manifest (kein extra File nötig) */
